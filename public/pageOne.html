@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page One</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>Page One</h1>
+  <label for="username">Enter your name:</label>
+  <input type="text" id="username" placeholder="Your Name" required />
+  <button id="start">Start Sharing Location</button>
+
+  <p>Your location is being sent to the server...</p>
+
+  <script>
+    const socket = io();
+
+    document.getElementById('start').addEventListener('click', () => {
+      const username = document.getElementById('username').value.trim();
+
+      if (!username) {
+        alert('Please enter your name!');
+        return;
+      }
+
+      function sendLocation() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition((position) => {
+            const { latitude, longitude } = position.coords;
+            socket.emit('sendLocation', { username, latitude, longitude });
+            console.log('Location sent:', { username, latitude, longitude });
+          });
+        } else {
+          console.error('Geolocation is not supported by this browser.');
+        }
+      }
+
+      // Send location every 5 seconds
+      setInterval(sendLocation, 5000);
+    });
+  </script>
+</body>
+</html>
