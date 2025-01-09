@@ -4,86 +4,82 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Page Two</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
     #map {
-      width: 100%;
-      height: 400px;
-      border-radius: 8px;
-      overflow: hidden;
+      width: 100vw;
+      height: 50vh;  /* Shorter map height */
     }
-    ul {
-      list-style-type: none;
-      padding: 0;
-    }
-    li {
-      margin: 5px 0;
+    #locations {
+      padding: 10px;
+      height: 40vh;  /* Adjust height for location list */
+      overflow-y: auto;
+      background-color: #f8f9fa;
+      border-top: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
-  <h1>Page Two</h1>
+  <h1>Page Two: Map with Locations</h1>
   <div id="map"></div>
-  <div>
-    <h2>Connected Users:</h2>
-    <ul id="userList"></ul>
-  </div>
+  <div id="locations"></div>
 
   <script>
-    // ✅ Your Mapbox API Key
-    mapboxgl.accessToken = "pk.eyJ1Ijoia2FtcmFuLTAwMyIsImEiOiJjbTQzM3NoOWowNzViMnFzNHBwb2wwZ2k0In0.DHxC51GY9USAaRFeqH7awQ";
+    // Initialize Mapbox
+    mapboxgl.accessToken = 'pk.eyJ1Ijoia2FtcmFuLTAwMyIsImEiOiJjbTQzM3NoOWowNzViMnFzNHBwb2wwZ2k0In0.DHxC51GY9USAaRFeqH7awQ';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [73.0551, 33.6844], // Default center: Islamabad
+      zoom: 5,
+    });
+
+    // Add zoom and rotation controls to the map
+    map.addControl(new mapboxgl.NavigationControl());
 
     const socket = io();
-    let map;
-    const markers = {};
-    const userList = document.getElementById('userList');
+    const locationsDiv = document.getElementById('locations');
+    const markers = {}; // To store map markers by socket ID
 
-    // Initialize Mapbox map
-    function initializeMap() {
-      map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [73.0551, 33.6844], // Default to Islamabad
-        zoom: 12,
-      });
-    }
-
-    // Add or update a marker for a user
-    function updateMarker(userId, username, latitude, longitude) {
-      if (markers[userId]) {
-        // Update existing marker
-        markers[userId].setLngLat([longitude, latitude]);
-      } else {
-        // Create a new marker
-        const marker = new mapboxgl.Marker({ color: 'red' })
-          .setLngLat([longitude, latitude])
-          .setPopup(new mapboxgl.Popup().setText(username)) // Show name on click
-          .addTo(map);
-        markers[userId] = marker;
-      }
-    }
-
-    // Update user list
-    function updateUserList(locations) {
-      userList.innerHTML = '';
-      locations.forEach(({ username, latitude, longitude }, index) => {
-        const li = document.createElement('li');
-        li.textContent = `${username}: Latitude ${latitude}, Longitude ${longitude}`;
-        userList.appendChild(li);
-      });
-    }
-
-    // Initialize the map
-    initializeMap();
-
-    // Listen for location updates from the server
+    // Listen for location broadcasts
     socket.on('broadcastLocations', (locations) => {
+      // Clear the list of locations
+      locationsDiv.innerHTML = '';
+
+      // Loop through received locations and update the map
       locations.forEach(({ id, username, latitude, longitude }) => {
-        updateMarker(id, username, latitude, longitude);
+        // Add to the list of locations
+        const locationItem = document.createElement('div');
+        locationItem.textContent = `${username}: (${latitude}, ${longitude})`;
+        locationsDiv.appendChild(locationItem);
+
+        // Add or update marker on the map
+        if (!markers[id]) {
+          // Create a new marker
+          const marker = new mapboxgl.Marker({ color: 'red' })
+            .setLngLat([longitude, latitude])
+            .setPopup(new mapboxgl.Popup().setText(`${username}`)) // Add popup with username
+            .addTo(map);
+          markers[id] = marker;
+        } else {
+          // Update existing marker position
+          markers[id].setLngLat([longitude, latitude]);
+        }
       });
-      updateUserList(locations);
+
+      // Remove markers for users no longer broadcasting locations
+      Object.keys(markers).forEach((id) => {
+        if (!locations.find((loc) => loc.id === id)) {
+          markers[id].remove();
+          delete markers[id];
+        }
+      });
     });
   </script>
 </body>
